@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated DDR Generation</title>
+    <style>
+        :root {
+            --primary: #a855f7;
+            --primary-hover: #c026d3;
+            --bg: #0f172a;
+            --panel: rgba(30, 41, 59, 0.4);
+            --text: #F8FAFC;
+            --text-muted: #94A3B8;
+            --border: rgba(255, 255, 255, 0.1);
+            --success: #10B981;
+            --error: #EF4444;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(67, 56, 202, 0.4) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.3) 0, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.3) 0, transparent 50%);
+            background-attachment: fixed;
+            background-size: cover;
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 2rem;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .sidebar {
+            background: var(--panel);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 2rem;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.7rem;
+            margin: 0 0 0.5rem 0;
+            background: linear-gradient(to right, #60A5FA, #e879f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .upload-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .upload-group label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: rgba(248, 250, 252, 0.85);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .file-input-wrapper:hover {
+            border-color: var(--primary);
+            background: rgba(168, 85, 247, 0.05);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-input-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-text svg {
+            width: 28px;
+            height: 28px;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .file-input-wrapper:hover .file-input-text svg {
+            transform: scale(1.15) translateY(-2px);
+            color: #e879f9;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, var(--primary), #e879f9);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
+            margin-top: auto;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.45);
+            background: linear-gradient(135deg, #9333ea, #d946ef);
+        }
+
+        .generate-btn:disabled {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            box-shadow: none;
+            transform: none;
+            cursor: not-allowed;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .styled-select {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(248, 250, 252, 0.9);
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+            width: 100%;
+        }
+
+        .styled-select:hover {
+            border-color: var(--primary);
+            background: rgba(168, 85, 247, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .styled-select option {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .main-content {
+            background: var(--panel);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            padding: 2.5rem;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .loader {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #report-content {
+            white-space: pre-wrap;
+            display: none;
+        }
+        
+        #report-content h1, #report-content h2, #report-content h3 {
+            color: #fff;
+            margin-top: 1.5rem;
+        }
+
+        .status-msg {
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .status-error { color: var(--error); }
+        .status-success { color: var(--success); }
+
+        /* Marked library Markdown styles overloads */
+        .markdown-body {
+            color: var(--text);
+        }
+        .markdown-body h1, .markdown-body h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Premium Authentication UI Overlay */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .auth-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3rem 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent, rgba(168, 85, 247, 0.3), transparent 30%);
+            animation: rotateGlow 8s linear infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .auth-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-header h2 {
+            font-size: 2rem;
+            margin: 0;
+            background: linear-gradient(to right, #e879f9, #60A5FA);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .auth-header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin: 0.5rem 0 0;
+        }
+
+        .auth-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .auth-input-group label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .auth-input {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .auth-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .auth-error {
+            color: var(--error);
+            font-size: 0.85rem;
+            text-align: center;
+            margin: -0.5rem 0;
+            min-height: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(40px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes rotateGlow {
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .shake-animation {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Hide main container natively */
+        #app-container {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+    </style>
+</head>
+<body>
+
+<div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card" id="auth-card">
+        <div class="auth-content">
+            <div class="auth-header">
+                <h2>System Access</h2>
+                <p>Authenticate to view DDR reports</p>
+            </div>
+            
+            <div class="auth-input-group">
+                <label>Username</label>
+                <input type="text" id="auth-user" class="auth-input" placeholder="Enter username" autocomplete="off">
+            </div>
+            
+            <div class="auth-input-group">
+                <label>Password</label>
+                <input type="password" id="auth-pass" class="auth-input" placeholder="Enter password">
+            </div>
+            
+            <div class="auth-error" id="auth-error-msg">Invalid Credentials</div>
+            
+            <button class="generate-btn" id="login-btn" style="margin-top: 0.5rem;">
+                Secure Login
+                <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="container" id="app-container">
+    <div class="sidebar">
+        <div class="header">
+            <h1>Automated DDR Base</h1>
+            <p>Upload your inspection and thermal reports</p>
+        </div>
+
+        <div class="upload-group">
+            <label>Inspection Report (PDF)</label>
+            <div class="file-input-wrapper" id="insp-wrapper">
+                <input type="file" id="inspection-file" accept="application/pdf">
+                <div class="file-input-text">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span id="insp-label">Click to browse or drag file</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-group">
+            <label>Thermal Report (PDF)</label>
+            <div class="file-input-wrapper" id="therm-wrapper">
+                <input type="file" id="thermal-file" accept="application/pdf">
+                <div class="file-input-text">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span id="therm-label">Click to browse or drag file</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-group">
+            <label>Pages To Analyze</label>
+            <select id="page-limit" class="styled-select">
+                <option value="3">First 3 Pages (Low Cost)</option>
+                <option value="5" selected>First 5 Pages (Standard Default)</option>
+                <option value="7">First 7 Pages (Medium)</option>
+                <option value="10">First 10 Pages (Thorough)</option>
+                <option value="0">All Pages (Max Precision)</option>
+                <option value="custom">Custom...</option>
+            </select>
+            <input type="number" id="custom-page-limit" class="styled-select" placeholder="Enter page count" style="display: none; margin-top: 0.5rem;" min="1" max="1000">
+        </div>
+
+        <div class="upload-group">
+            <label>Groq API Key (Optional Backup)</label>
+            <input type="password" id="groq-key" class="styled-select" placeholder="gsk_...">
+        </div>
+
+        <div class="upload-group">
+            <label>Gemini API Key (Optional Backup)</label>
+            <input type="password" id="gemini-key" class="styled-select" placeholder="AIzaSy...">
+        </div>
+
+        <button class="generate-btn" id="generate-btn" disabled>
+            Generate Report
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </button>
+        <button class="generate-btn" id="download-btn" style="display: none; background: var(--success); margin-top: 10px;">
+            Download as PDF
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        </button>
+
+        <div id="status" class="status-msg"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p>Analyzing diagnostic data with AI...</p>
+        </div>
+        <div id="report-content" class="markdown-body">
+            <!-- Output goes here -->
+            <div style="color: var(--text-muted); display: flex; height: 100%; align-items: center; justify-content: center;">
+                Upload files and click generate to view the Detailed Diagnostic Report.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Use marked.js to render markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    // --- Authentication Gateway API ---
+    const loginBtn = document.getElementById('login-btn');
+    const authUser = document.getElementById('auth-user');
+    const authPass = document.getElementById('auth-pass');
+    const authCard = document.getElementById('auth-card');
+    const authOverlay = document.getElementById('auth-overlay');
+    const appContainer = document.getElementById('app-container');
+    const authErrorMsg = document.getElementById('auth-error-msg');
+
+    loginBtn.addEventListener('click', () => {
+        const user = authUser.value;
+        const pass = authPass.value;
+
+        if (user === 'admin' && pass === 'admin') {
+            // Success: Unveil the application dashboard!
+            authErrorMsg.style.opacity = '0';
+            authOverlay.style.opacity = '0';
+            
+            setTimeout(() => {
+                authOverlay.style.display = 'none';
+                appContainer.style.display = 'grid';
+                // Trigger hard reflow to guarantee CSS opacity transition hooks reliably
+                void appContainer.offsetWidth;
+                appContainer.style.opacity = '1';
+            }, 800);
+        } else {
+            // Rejection: Trigger robust shake UI and error text
+            authErrorMsg.style.opacity = '1';
+            authCard.classList.remove('shake-animation');
+            void authCard.offsetWidth; // Reflow to retrigger animation
+            authCard.classList.add('shake-animation');
+        }
+    });
+
+    // Native 'Enter' Key Submits Form
+    authPass.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginBtn.click();
+    });
+
+    // ---------------------------------
+
+    const inspInput = document.getElementById('inspection-file');
+    const thermInput = document.getElementById('thermal-file');
+    const groqKeyInput = document.getElementById('groq-key');
+    const geminiKeyInput = document.getElementById('gemini-key');
+    const inspLabel = document.getElementById('insp-label');
+    const thermLabel = document.getElementById('therm-label');
+    const generateBtn = document.getElementById('generate-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const loader = document.getElementById('loader');
+    const reportContent = document.getElementById('report-content');
+    const statusMsg = document.getElementById('status');
+    const pageLimitSelect = document.getElementById('page-limit');
+    const customPageInput = document.getElementById('custom-page-limit');
+
+    function checkInputs() {
+        if (inspInput.files.length > 0 && thermInput.files.length > 0) {
+            generateBtn.disabled = false;
+        } else {
+            generateBtn.disabled = true;
+        }
+    }
+
+    pageLimitSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+            customPageInput.style.display = 'block';
+            customPageInput.focus();
+        } else {
+            customPageInput.style.display = 'none';
+        }
+    });
+
+    inspInput.addEventListener('change', (e) => {
+        if(e.target.files[0]) inspLabel.textContent = e.target.files[0].name;
+        checkInputs();
+    });
+
+    thermInput.addEventListener('change', (e) => {
+        if(e.target.files[0]) thermLabel.textContent = e.target.files[0].name;
+        checkInputs();
+    });
+
+    generateBtn.addEventListener('click', async () => {
+        if (!inspInput.files[0] || !thermInput.files[0]) return;
+
+        const formData = new FormData();
+        let pageLimit = document.getElementById('page-limit').value;
+        if (pageLimit === 'custom') {
+            pageLimit = document.getElementById('custom-page-limit').value;
+            if (!pageLimit || pageLimit < 1) pageLimit = 5; // Fallback to 5 if empty
+        }
+        
+        formData.append('inspection_file', inspInput.files[0]);
+        formData.append('thermal_file', thermInput.files[0]);
+        formData.append('max_pages', pageLimit);
+
+        if (groqKeyInput.value.trim() !== '') {
+            formData.append('groq_api_key', groqKeyInput.value.trim());
+        }
+        if (geminiKeyInput.value.trim() !== '') {
+            formData.append('gemini_api_key', geminiKeyInput.value.trim());
+        }
+
+        loader.style.display = 'flex';
+        reportContent.style.display = 'none';
+        generateBtn.disabled = true;
+        statusMsg.textContent = '';
+        statusMsg.className = 'status-msg';
+
+        try {
+            const response = await fetch('/process', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to generate report');
+            }
+
+            const data = await response.json();
+            
+            // Render markdown
+            reportContent.innerHTML = marked.parse(data.markdown_report);
+            reportContent.style.display = 'block';
+            downloadBtn.style.display = 'flex';
+            statusMsg.textContent = 'Report generated successfully!';
+            statusMsg.className = 'status-msg status-success';
+        } catch (error) {
+            console.error(error);
+            statusMsg.textContent = error.message;
+            statusMsg.className = 'status-msg status-error';
+            reportContent.style.display = 'block';
+            downloadBtn.style.display = 'none';
+        } finally {
+            loader.style.display = 'none';
+            generateBtn.disabled = false;
+        }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+        const element = document.getElementById('report-content');
+        const opt = {
+            margin:       0.5,
+            filename:     'DDR_Report.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        
+        // Temporarily adjust styling for cleaner white-background PDF rendering
+        element.style.color = '#000';
+        element.style.background = '#FFF';
+        element.style.padding = '20px';
+        const headers = element.querySelectorAll('h1, h2, h3');
+        headers.forEach(h => h.style.color = '#000');
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Restore styling back to dark-mode panel
+            element.style.color = '';
+            element.style.background = '';
+            element.style.padding = '';
+            headers.forEach(h => h.style.color = '');
+        });
+    });
+
+</script>
+</body>
+</html>
